@@ -36,7 +36,6 @@ func (p *HttpProvider) request(req *Request) (*Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println(string(body))
 	r, err := http.NewRequest("POST", p.Endpoint, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
