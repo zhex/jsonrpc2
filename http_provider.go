@@ -9,22 +9,22 @@ import (
 
 func NewHttpProvider(endpoint string) *HttpProvider {
 	return &HttpProvider{
-		Client:   &http.Client{},
-		Endpoint: endpoint,
-		ID:       0,
+		client:   &http.Client{},
+		endpoint: endpoint,
+		id:       0,
 	}
 }
 
 type HttpProvider struct {
-	Client   *http.Client
-	Endpoint string
-	ID       int
+	client   *http.Client
+	endpoint string
+	id       int
 }
 
 func (p *HttpProvider) Call(method string, params ...interface{}) (*Response, error) {
-	p.ID++
+	p.id++
 	return p.request(&Request{
-		ID:      p.ID,
+		ID:      p.id,
 		Method:  method,
 		JSONRPC: "2.0",
 		Params:  params,
@@ -36,7 +36,7 @@ func (p *HttpProvider) request(req *Request) (*Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	r, err := http.NewRequest("POST", p.Endpoint, bytes.NewReader(body))
+	r, err := http.NewRequest("POST", p.endpoint, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
@@ -44,7 +44,7 @@ func (p *HttpProvider) request(req *Request) (*Response, error) {
 	r.Header.Set("Content-Type", "application/json")
 	r.Header.Set("Accept", "application/json")
 
-	resp, err := p.Client.Do(r)
+	resp, err := p.client.Do(r)
 	if err != nil {
 		return nil, err
 	}

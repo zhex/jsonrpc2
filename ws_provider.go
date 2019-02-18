@@ -1,6 +1,7 @@
 package jsonrpc2
 
 import (
+	"context"
 	"fmt"
 	"github.com/gorilla/websocket"
 	"log"
@@ -12,23 +13,32 @@ func NewWsProvider(endpoint string) *WsProvider {
 		log.Fatal(err)
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+
 	p := &WsProvider{
-		client:   client,
-		endpoint: endpoint,
-		id:       0,
-		msgChan:  make(map[int](chan *Response)),
+		client:    client,
+		endpoint:  endpoint,
+		id:        0,
+		msgChan:   make(map[int](chan *Response)),
+		ctx:       ctx,
+		ctxCancel: cancel,
 	}
 
 	go func() {
 		for {
-			resp := &Response{}
-			err := client.ReadJSON(resp)
-			if err != nil {
-				fmt.Println(err)
-				continue
-			}
-			if c, ok := p.msgChan[resp.ID]; ok {
-				c <- resp
+			select {
+			case <-p.ctx.Done():
+				return
+			default:
+				resp := &Response{}
+				err := client.ReadJSON(resp)
+				if err != nil {
+					fmt.Println(err)
+					continue
+				}
+				if c, ok := p.msgChan[resp.ID]; ok {
+					c <- resp
+				}
 			}
 		}
 	}()
@@ -37,10 +47,12 @@ func NewWsProvider(endpoint string) *WsProvider {
 }
 
 type WsProvider struct {
-	client   *websocket.Conn
-	endpoint string
-	id       int
-	msgChan  map[int](chan *Response)
+	client    *websocket.Conn
+	endpoint  string
+	id        int
+	msgChan   map[int](chan *Response)
+	ctx       context.Context
+	ctxCancel context.CancelFunc
 }
 
 func (p *WsProvider) Call(method string, params ...interface{}) (*Response, error) {
@@ -62,12 +74,13 @@ func (p *WsProvider) Call(method string, params ...interface{}) (*Response, erro
 	return resp, nil
 }
 
-func (p *WsProvider) Subscribe(callback func(*Response)) error {
+func (p *WsProvider) Subscribe(method string, callback func(*Response)) error {
 	// todo
 	return nil
 }
 
 func (p *WsProvider) Close() {
+	p.ctxCancel()
 	for key := range p.msgChan {
 		delete(p.msgChan, key)
 	}
